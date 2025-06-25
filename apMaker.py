@@ -168,14 +168,43 @@ def makeGasket(c1,c2,c3,n):
         genInd = [genInd[1], len(gasket)]
     return gasket
 
-def plotGasket(gasket):
+# find the largest circle in a gasket. 
+# Assumes there is a single biggest circle containing the others
+def findBiggestCircle(gasket):
+    maxrad = 0
+    
+    for k, c in enumerate(gasket):
+        if c.radius > maxrad:
+            biggestCirc = c
+            maxrad = c.radius
+    return biggestCirc 
+
+def plotGasket(gasket,noColors= False,axis = None,normalize = None,animated = False):
+    if axis is None:
+        fig, ax  = plt.subplots()
+    else: 
+        ax = axis
+        fig = None
+
+    ax.clear() # clear current axis
     t = np.linspace(0, 2*np.pi, 100)
 
     # Extract generation values (or set to None)
     generations = [c.generation if hasattr(c, 'generation') and c.generation is not None else None for c in gasket]
     gen_vals = [c for c in generations if c is not None]
 
-    use_colors = len(gen_vals) > 0
+    use_colors = len(gen_vals) > 0 and not noColors
+
+    if normalize: # normalize each circle in the gasket
+        normgasket = gasket
+        bcirc = findBiggestCircle(gasket)
+        bcent = bcirc.center
+        brad = bcirc.radius
+
+        for c in normgasket:
+            c.center = (c.center - bcent)/brad
+            c.radius = c.radius/brad
+
     if use_colors:
         # Normalize generation values
         gen_min = min(gen_vals)
@@ -183,23 +212,27 @@ def plotGasket(gasket):
         norm = plt.Normalize(vmin=gen_min, vmax=gen_max)
         cmap = plt.cm.nipy_spectral
 
-    for k, c in enumerate(gasket):
-        z = c.center + c.radius * np.exp(1j * t)
-        x, y = z.real, z.imag
+    if not normalize:
+        for k, c in enumerate(gasket):
+            z = c.center + c.radius * np.exp(1j * t)
+            x, y = z.real, z.imag
 
-        if generations[k] is not None and use_colors:
-            color = cmap(norm(generations[k]))
-        else:
-            color = 'gray'
-        plt.plot(x, y, color=color)
+            if generations[k] is not None and use_colors:
+                color = cmap(norm(generations[k]))
+            else:
+                color = 'black'
+            ax.plot(x, y, color=color)
+    else: # in case the gasket is normalized
+        for k, c in enumerate(normgasket):
+            z = c.center + c.radius * np.exp(1j * t)
+            x, y = z.real, z.imag
 
-    # Optional: colorbar
-    # if use_colors:
-    #     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    #     sm.set_array([])
-    #     plt.colorbar(sm, label='Generation')
-
-    # plt.axis('equal')
-    # plt.title("Gasket Circles by Generation")
-
-    plt.show()
+            if generations[k] is not None and use_colors:
+                color = cmap(norm(generations[k]))
+            else:
+                color = 'black'
+            ax.plot(x, y, color=color)
+    if axis is None:
+        return fig, ax
+    else:
+        return None
